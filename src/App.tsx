@@ -236,7 +236,8 @@ export default function App() {
 
   if(!leads.length) return(
     <div className="min-h-screen bg-zinc-950 font-sans text-zinc-400" onDragOver={e=>e.preventDefault()} onDrop={hd}>
-      <div className="border-b border-zinc-800 px-6 py-4"><div className="max-w-[1400px] mx-auto flex items-end justify-between flex-wrap gap-3">
+      <div className="border-b border-zinc-800 px-6 py-4 relative overflow-hidden" style={{backgroundImage:'url(/trade-show-booth.jpg)',backgroundSize:'cover',backgroundPosition:'center',backgroundRepeat:'no-repeat'}}>
+        <div className="absolute inset-0 bg-zinc-950/88" /><div className="max-w-[1400px] mx-auto flex items-end justify-between flex-wrap gap-3 relative z-10">
         <div><h1 className="text-2xl font-black text-amber-500 tracking-tighter leading-[0.95]">TRADE SHOW INSIGHTS.</h1><p className="text-[0.65rem] text-zinc-600 mt-1">The Stuff Buyers — Lead Intelligence Platform</p></div>
         <div className="flex items-center gap-3 flex-wrap">
           <div className={`flex items-center gap-1.5 text-[0.65rem] px-2.5 py-1 rounded-lg border ${dbc?'border-green-900/50 text-green-500':dbl?'border-zinc-700 text-zinc-500':'border-red-900/50 text-red-400'}`}><div className={`w-1.5 h-1.5 rounded-full ${dbc?'bg-green-500 animate-pulse':dbl?'bg-zinc-500 animate-pulse':'bg-red-500'}`}/>{dbl?'Connecting...':dbc?`Live · ${deals.length} deals`:'Disconnected'}</div>
@@ -281,7 +282,8 @@ export default function App() {
   const iF=fC||fP||fM||fS
   return(
     <div className="min-h-screen bg-zinc-950 font-sans text-zinc-400">
-      <div className="border-b border-zinc-800 px-6 py-4"><div className="max-w-[1400px] mx-auto flex items-end justify-between flex-wrap gap-3">
+      <div className="border-b border-zinc-800 px-6 py-4 relative overflow-hidden" style={{backgroundImage:'url(/trade-show-booth.jpg)',backgroundSize:'cover',backgroundPosition:'center',backgroundRepeat:'no-repeat'}}>
+        <div className="absolute inset-0 bg-zinc-950/88" /><div className="max-w-[1400px] mx-auto flex items-end justify-between flex-wrap gap-3 relative z-10">
         <div><h1 className="text-2xl font-black text-amber-500 tracking-tighter leading-[0.95]">TRADE SHOW INSIGHTS.</h1><p className="text-[0.65rem] text-zinc-600 mt-1">The Stuff Buyers — Lead Intelligence Platform</p></div>
         <div className="flex items-center gap-3 flex-wrap">
           {/* Show selector */}
