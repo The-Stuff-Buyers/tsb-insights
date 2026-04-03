@@ -129,7 +129,7 @@ export default function App() {
   useEffect(()=>{const u=subscribeToDeals(()=>{loadDB()});return u},[loadDB])
 
   // Stored show metadata (populated before files download — used to show chips on empty state)
-  const [storedShows,sStoredShows]=useState<TradeShowFile[]>([])
+  const [_storedShows,sStoredShows]=useState<TradeShowFile[]>([])
   const [restoring,sRestoring]=useState(true)
 
   // Restore previously uploaded show files from Supabase storage on mount
@@ -203,7 +203,8 @@ export default function App() {
     if(entry?.storedId&&entry?.storagePath){deleteShowFile(entry.storedId,entry.storagePath).catch(console.error)}
   }
 
-  const hd=useCallback((e:React.DragEvent)=>{e.preventDefault();if(e.dataTransfer?.files?.length)handleFiles(e.dataTransfer.files)},[handleFiles])
+  // drag-drop handler used in upload zone below
+  const onDropFiles=useCallback((e:React.DragEvent)=>{e.preventDefault();if(e.dataTransfer?.files?.length)handleFiles(e.dataTransfer.files)},[handleFiles])
 
   // All filters including show
   const filtered=useMemo(()=>{
@@ -233,51 +234,6 @@ export default function App() {
   },[leads,deals,fs,mr,fS])
 
   const exp=()=>{if(!mr.length)return;const r=(fS?mr.filter(x=>x.lead.show_name===fS):mr).map(r=>({...r.lead,product_categories:r.lead.product_categories.join('|'),match_confidence:r.confidence,matched_on:r.matchedOn.join('+'),deal_count:r.deals.length,deal_ids:r.deals.map(d=>d.deal_id).join('; ')}));const csv=Papa.unparse(r);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`tsb_leads_${fS||'all_shows'}_matched.csv`;a.click()}
-
-  if(!leads.length) return(
-    <div className="min-h-screen bg-zinc-950 font-sans text-zinc-400" onDragOver={e=>e.preventDefault()} onDrop={hd}>
-      <div className="border-b border-zinc-800 px-6 py-4 relative overflow-hidden" style={{backgroundImage:'url(/trade-show-booth.jpg)',backgroundSize:'cover',backgroundPosition:'center',backgroundRepeat:'no-repeat'}}>
-        <div className="absolute inset-0 bg-zinc-950/88" /><div className="max-w-[1400px] mx-auto flex items-end justify-between flex-wrap gap-3 relative z-10">
-        <div><h1 className="text-2xl font-black text-amber-500 tracking-tighter leading-[0.95]">TRADE SHOW INSIGHTS.</h1><p className="text-[0.65rem] text-zinc-600 mt-1">The Stuff Buyers — Lead Intelligence Platform</p></div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className={`flex items-center gap-1.5 text-[0.65rem] px-2.5 py-1 rounded-lg border ${dbc?'border-green-900/50 text-green-500':dbl?'border-zinc-700 text-zinc-500':'border-red-900/50 text-red-400'}`}><div className={`w-1.5 h-1.5 rounded-full ${dbc?'bg-green-500 animate-pulse':dbl?'bg-zinc-500 animate-pulse':'bg-red-500'}`}/>{dbl?'Connecting...':dbc?`Live · ${deals.length} deals`:'Disconnected'}</div>
-          <Button variant="outline" size="sm" onClick={loadDB} disabled={dbl} className="text-xs border-zinc-700 text-zinc-400 hover:text-amber-500 h-7">{dbl?'↻ Syncing...':'↻ Sync'}</Button>
-          <Button variant="outline" size="sm" onClick={()=>fr.current?.click()} className="text-xs border-amber-700/60 text-amber-500 hover:bg-amber-500/10 h-7">+ Add Show CSV</Button>
-          <input ref={fr} type="file" accept=".csv" multiple className="hidden" onChange={e=>e.target.files?.length&&handleFiles(e.target.files)}/>
-        </div>
-      </div></div>
-      <div className="px-6 pt-6 pb-4 max-w-[1400px] mx-auto">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <KPI label="Total Deals" value={deals.length} accent/>
-          <KPI label="In Pipeline" value={deals.filter(d=>!['closed_won','closed_lost','closed_bidfta_declined','closed_expired','closed_declined','closed_withdrawn'].includes(d.stage)).length}/>
-          <KPI label="At BidFTA" value={deals.filter(d=>['submitted_to_bidfta','submitted'].includes(d.stage)).length}/>
-          <KPI label="Form Submissions" value={fs.length}/>
-        </div>
-        {/* Stored shows — loading or chips */}
-        {restoring&&<div className="flex items-center gap-2 mb-4 text-xs text-zinc-600"><div className="w-3 h-3 border border-zinc-600 border-t-amber-500 rounded-full animate-spin"/>Loading saved shows...</div>}
-        {!restoring&&storedShows.length>0&&(
-          <div className="mb-5">
-            <p className="text-[0.65rem] font-bold uppercase tracking-wider text-zinc-600 mb-2">Saved Shows — loading data...</p>
-            <div className="flex flex-wrap gap-2">
-              {storedShows.map(sf=>(
-                <div key={sf.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-900/40 bg-amber-950/20 text-amber-500 text-xs font-semibold">
-                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"/>
-                  {sf.show_name} <span className="text-amber-700">· {sf.lead_count} leads</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        <div onClick={()=>fr.current?.click()} onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor=GOLD}} onDragLeave={e=>{e.currentTarget.style.borderColor=''}}
-          className="border-2 border-dashed border-zinc-800 rounded-xl p-10 text-center cursor-pointer hover:border-amber-500/40 transition-colors">
-          <div className="text-3xl mb-2">⬆</div>
-          <div className="text-base font-bold text-amber-500 mb-1">Drop trade show lead CSVs to cross-reference your pipeline</div>
-          <div className="text-xs text-zinc-600">Each file becomes a filterable show · Auto-matches against {deals.length} live deals</div>
-          {ld&&<p className="text-amber-500 text-xs mt-3 animate-pulse">Processing...</p>}
-        </div>
-      </div>
-    </div>
-  )
 
   const iF=fC||fP||fM||fS
   return(
@@ -312,6 +268,20 @@ export default function App() {
             <TabsTrigger key={t.id} value={t.id} className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:text-amber-500 text-zinc-600 text-[0.72rem] font-medium px-4 py-2.5 bg-transparent data-[state=active]:bg-transparent">{t.l}</TabsTrigger>
           )}
         </TabsList>
+
+        {/* Upload prompt — shown inline when no CSVs loaded yet */}
+        {!leads.length&&<div className="py-8">
+          {restoring
+            ? <div className="flex items-center gap-2 text-xs text-zinc-600 justify-center"><div className="w-3 h-3 border border-zinc-600 border-t-amber-500 rounded-full animate-spin"/>Restoring saved shows...</div>
+            : <div onClick={()=>fr.current?.click()} onDrop={onDropFiles} onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor=GOLD}} onDragLeave={e=>{e.currentTarget.style.borderColor=''}}
+                className="border-2 border-dashed border-zinc-800 rounded-xl p-10 text-center cursor-pointer hover:border-amber-500/40 transition-colors max-w-2xl mx-auto">
+                <div className="text-3xl mb-2">⬆</div>
+                <div className="text-base font-bold text-amber-500 mb-1">Drop trade show lead CSVs to cross-reference your pipeline</div>
+                <div className="text-xs text-zinc-600">Each file becomes a filterable show · Auto-matches against {deals.length} live deals</div>
+                {ld&&<p className="text-amber-500 text-xs mt-3 animate-pulse">Processing...</p>}
+              </div>
+          }
+        </div>}
 
         {iF&&<div className="flex items-center gap-2 flex-wrap mt-3 mb-1"><span className="text-[0.6rem] text-zinc-600 font-bold uppercase">Filters:</span>{fS&&<Badge className="bg-amber-900/20 text-amber-400 border-amber-800/50 text-[0.6rem] cursor-pointer" onClick={()=>sFS2(null)}>Show: {fS} ×</Badge>}{fC&&<Badge variant="outline" className="text-amber-500 border-amber-800 text-[0.6rem] cursor-pointer" onClick={()=>sFC(null)}>{fC} ×</Badge>}{fP&&<Badge style={{color:PC[fP],borderColor:PC[fP]}} className="text-[0.6rem] cursor-pointer" onClick={()=>sFP(null)}>{fP} ×</Badge>}{fM&&<Badge variant="outline" className="text-zinc-400 border-zinc-700 text-[0.6rem] cursor-pointer" onClick={()=>sFM(null)}>{fM} ×</Badge>}<button onClick={()=>{sFC(null);sFP(null);sFM(null);sFS2(null)}} className="text-[0.6rem] text-red-400">Clear All</button></div>}
 
