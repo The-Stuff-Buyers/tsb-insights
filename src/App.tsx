@@ -22,8 +22,8 @@ import type { TradeShowFile } from '@/lib/fileStore'
 const GOLD = '#c9a84c'
 const COLORS = ['#c9a84c','#e8c84a','#a08030','#d4b85c','#8b7028','#f0d878','#bca048','#7a6020','#e0c060','#6a5018','#5cb85c','#4a9','#d9534f','#8e44ad','#3498db','#e67e22']
 const PC: Record<string, string> = {'Hot — Urgent':'#d9534f','Quote Submitted':'#5cb85c','Quote Expected':'#c9a84c','Warm — Needs Outreach':'#e67e22','Info Requested':'#3498db','Partnership / Referral':'#8e44ad','Cold — Low Priority':'#666','New Lead — Triage':'#555'}
-const DSC: Record<string, string> = {gate1_pending:'#e67e22',submitted:'#3498db',gate2_pending:'#8e44ad',offer_sent:'#c9a84c',closed_won:'#5cb85c',closed_lost:'#d9534f',closed_bidfta_declined:'#888',awaiting_info:'#666',bidfta_incomplete:'#999'}
-const DSL: Record<string, string> = {gate1_pending:'Gate 1 Pending',submitted:'Submitted to BidFTA',gate2_pending:'Gate 2 Pending',offer_sent:'Offer Sent',closed_won:'Closed Won',closed_lost:'Closed Lost',closed_bidfta_declined:'BidFTA Declined',awaiting_info:'Awaiting Info',bidfta_incomplete:'BidFTA Incomplete'}
+const DSC: Record<string, string> = {gate1_pending:'#e67e22',submitted:'#3498db',submitted_to_bidfta:'#3498db',gate2_pending:'#8e44ad',offer_sent:'#c9a84c',closed_won:'#5cb85c',closed_lost:'#d9534f',closed_bidfta_declined:'#888',awaiting_info:'#f59e0b',bidfta_incomplete:'#999'}
+const DSL: Record<string, string> = {gate1_pending:'Gate 1 Pending',submitted:'Submitted to BidFTA',submitted_to_bidfta:'At BidFTA — Awaiting Quote',gate2_pending:'Quote Received — Gate 2',offer_sent:'Offer Sent',closed_won:'Closed Won',closed_lost:'Closed Lost',closed_bidfta_declined:'BidFTA Declined',awaiting_info:'Awaiting More Info',bidfta_incomplete:'BidFTA Incomplete'}
 const CC: Record<string, string> = {exact:'#5cb85c',high:'#c9a84c',fuzzy:'#e67e22',none:'#555'}
 const se = (o: Record<string, number>) => Object.entries(o).sort((a, b) => b[1] - a[1])
 const pct = (n: number, t: number) => t ? Math.round(n / t * 100) : 0
@@ -249,7 +249,7 @@ export default function App() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <KPI label="Total Deals" value={deals.length} accent/>
           <KPI label="In Pipeline" value={deals.filter(d=>!['closed_won','closed_lost','closed_bidfta_declined','closed_expired','closed_declined','closed_withdrawn'].includes(d.stage)).length}/>
-          <KPI label="Quotes Received" value={deals.filter(d=>['gate2_pending','offer_sent','closed_won'].includes(d.stage)).length}/>
+          <KPI label="At BidFTA" value={deals.filter(d=>['submitted_to_bidfta','submitted'].includes(d.stage)).length}/>
           <KPI label="Form Submissions" value={fs.length}/>
         </div>
         {/* Stored shows — loading or chips */}
