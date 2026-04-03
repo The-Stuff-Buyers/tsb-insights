@@ -16,6 +16,8 @@ import { classifyLead } from '@/lib/classify'
 import { matchLeadsToDeals, getMatchSummary } from '@/lib/matcher'
 import { fetchDealsWithQuotes, fetchFormSubmissions, subscribeToDeals } from '@/lib/api'
 import type { ASDLead, DealRecord, MatchResult, FormSubmission } from '@/lib/types'
+import { uploadShowFile, listShowFiles, downloadShowFile, deleteShowFile, updateLeadCount } from '@/lib/fileStore'
+import type { TradeShowFile } from '@/lib/fileStore'
 
 const GOLD = '#c9a84c'
 const COLORS = ['#c9a84c','#e8c84a','#a08030','#d4b85c','#8b7028','#f0d878','#bca048','#7a6020','#e0c060','#6a5018','#5cb85c','#4a9','#d9534f','#8e44ad','#3498db','#e67e22']
@@ -105,17 +107,19 @@ function ST({results,onSelect}:{results:MatchResult[];onSelect:(r:MatchResult)=>
 export default function App() {
   const [leads,sL]=useState<ASDLead[]>([]);const [deals,sD]=useState<DealRecord[]>([]);const [fs,sFS]=useState<FormSubmission[]>([])
   const [mr,sMR]=useState<MatchResult[]>([]);const [sel,sSel]=useState<MatchResult|null>(null)
-  const [files,sFiles]=useState<{name:string;showName:string;count:number}[]>([])
+  const [files,sFiles]=useState<{name:string;showName:string;count:number;storedId?:string;storagePath?:string}[]>([])
   const [ld,sLd]=useState(false);const [dbl,sDBL]=useState(false)
   const [dbc,sDBC]=useState(false);const [dbe,sDBE]=useState<string|null>(null);const [ls,sLS]=useState<Date|null>(null)
   const [fC,sFC]=useState<string|null>(null);const [fP,sFP]=useState<string|null>(null);const [fM,sFM]=useState<string|null>(null);const [fS,sFS2]=useState<string|null>(null)
   const fr=useRef<HTMLInputElement>(null)
   // Accumulated leads across multiple uploads
   const allLeadsRef=useRef<ASDLead[]>([])
+  // Mirror of deals state kept in a ref so async callbacks can read the latest value
+  const dealsRef=useRef<DealRecord[]>([])
 
   const loadDB=useCallback(async()=>{
     sDBL(true);sDBE(null)
-    try{const[d,f]=await Promise.all([fetchDealsWithQuotes(),fetchFormSubmissions()]);sD(d);sFS(f);sDBC(true);sLS(new Date())
+    try{const[d,f]=await Promise.all([fetchDealsWithQuotes(),fetchFormSubmissions()]);sD(d);dealsRef.current=d;sFS(f);sDBC(true);sLS(new Date())
       if(allLeadsRef.current.length>0){const r=matchLeadsToDeals(allLeadsRef.current,d);sMR(r);sL(r.map(x=>x.lead))}
     }catch(e:any){console.error('DB:',e);sDBE(e.message||'Failed');sDBC(false)}
     sDBL(false)
@@ -123,6 +127,32 @@ export default function App() {
 
   useEffect(()=>{loadDB()},[])
   useEffect(()=>{const u=subscribeToDeals(()=>{loadDB()});return u},[loadDB])
+
+  // Restore previously uploaded show files from Supabase storage on mount
+  useEffect(()=>{
+    ;(async()=>{
+      const stored=await listShowFiles()
+      if(!stored.length)return
+      const downloads=await Promise.all(stored.map(sf=>downloadShowFile(sf.storage_path).then(f=>({sf,f}))))
+      const valid=downloads.filter(x=>x.f!==null) as {sf:TradeShowFile;f:File}[]
+      if(!valid.length)return
+      const results=await Promise.all(valid.map(({sf,f})=>new Promise<{file:File;rows:ASDLead[];sf:TradeShowFile}>(resolve=>{
+        Papa.parse(f,{header:true,skipEmptyLines:true,complete:(res:Papa.ParseResult<Record<string,string>>)=>{
+          const showName=sf.show_name
+          const cl=res.data.map((r:any)=>{const n:Record<string,string>={};for(const[k,v]of Object.entries(r)){n[k.trim().toLowerCase().replace(/\s+/g,'_')]=typeof v==='string'?v.trim():String(v||'')};n.show_name=n.show_name||showName;n.source_file=f.name;return n}).filter((r:any)=>r.company||r.full_name)
+          resolve({file:f,rows:cl.map(classifyLead),sf})
+        }})
+      })))
+      const newFiles=results.map(r=>({name:r.file.name,showName:r.sf.show_name,count:r.rows.length,storedId:r.sf.id,storagePath:r.sf.storage_path}))
+      const newRows=results.flatMap(r=>r.rows)
+      const combined=[...allLeadsRef.current,...newRows]
+      allLeadsRef.current=combined
+      sFiles(prev=>[...prev,...newFiles])
+      sL(combined)
+      if(dealsRef.current.length>0){const mr2=matchLeadsToDeals(combined,dealsRef.current);sMR(mr2);sL(mr2.map(x=>x.lead))}
+      else{sMR(combined.map(l=>({lead:l,deals:[],confidence:'none' as const,matchedOn:[]})))}
+    })()
+  },[])
 
   const handleFiles=useCallback((fileList:FileList)=>{
     sLd(true)
@@ -144,16 +174,27 @@ export default function App() {
       if(deals.length>0){const mr2=matchLeadsToDeals(combined,deals);sMR(mr2);sL(mr2.map(x=>x.lead))}
       else{sMR(combined.map(l=>({lead:l,deals:[],confidence:'none' as const,matchedOn:[]})))}
       sLd(false)
+      // Upload each file to storage and update lead_count (non-blocking, graceful degradation)
+      results.forEach(({file,rows})=>{
+        uploadShowFile(file,deriveShowName(file.name)).then(stored=>{
+          if(!stored)return
+          updateLeadCount(stored.id,rows.length).catch(console.error)
+          sFiles(prev=>prev.map(f=>f.name===file.name?{...f,storedId:stored.id,storagePath:stored.storage_path}:f))
+        }).catch(console.error)
+      })
     })
   },[deals])
 
   const removeFile=(fileName:string)=>{
     const updated=allLeadsRef.current.filter(l=>l.source_file!==fileName)
     allLeadsRef.current=updated
+    const entry=files.find(f=>f.name===fileName)
     sFiles(prev=>prev.filter(f=>f.name!==fileName))
     sL(updated)
     if(deals.length>0){const mr2=matchLeadsToDeals(updated,deals);sMR(mr2);sL(mr2.map(x=>x.lead))}
     else{sMR(updated.map(l=>({lead:l,deals:[],confidence:'none' as const,matchedOn:[]})))}
+    // Delete from storage + DB (best-effort, non-blocking)
+    if(entry?.storedId&&entry?.storagePath){deleteShowFile(entry.storedId,entry.storagePath).catch(console.error)}
   }
 
   const hd=useCallback((e:React.DragEvent)=>{e.preventDefault();if(e.dataTransfer?.files?.length)handleFiles(e.dataTransfer.files)},[handleFiles])
