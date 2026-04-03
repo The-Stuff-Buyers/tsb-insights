@@ -128,10 +128,16 @@ export default function App() {
   useEffect(()=>{loadDB()},[])
   useEffect(()=>{const u=subscribeToDeals(()=>{loadDB()});return u},[loadDB])
 
+  // Stored show metadata (populated before files download — used to show chips on empty state)
+  const [storedShows,sStoredShows]=useState<TradeShowFile[]>([])
+  const [restoring,sRestoring]=useState(true)
+
   // Restore previously uploaded show files from Supabase storage on mount
   useEffect(()=>{
     ;(async()=>{
       const stored=await listShowFiles()
+      sStoredShows(stored)
+      sRestoring(false)
       if(!stored.length)return
       const downloads=await Promise.all(stored.map(sf=>downloadShowFile(sf.storage_path).then(f=>({sf,f}))))
       const valid=downloads.filter(x=>x.f!==null) as {sf:TradeShowFile;f:File}[]
@@ -246,6 +252,21 @@ export default function App() {
           <KPI label="Quotes Received" value={deals.filter(d=>['gate2_pending','offer_sent','closed_won'].includes(d.stage)).length}/>
           <KPI label="Form Submissions" value={fs.length}/>
         </div>
+        {/* Stored shows — loading or chips */}
+        {restoring&&<div className="flex items-center gap-2 mb-4 text-xs text-zinc-600"><div className="w-3 h-3 border border-zinc-600 border-t-amber-500 rounded-full animate-spin"/>Loading saved shows...</div>}
+        {!restoring&&storedShows.length>0&&(
+          <div className="mb-5">
+            <p className="text-[0.65rem] font-bold uppercase tracking-wider text-zinc-600 mb-2">Saved Shows — loading data...</p>
+            <div className="flex flex-wrap gap-2">
+              {storedShows.map(sf=>(
+                <div key={sf.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-900/40 bg-amber-950/20 text-amber-500 text-xs font-semibold">
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"/>
+                  {sf.show_name} <span className="text-amber-700">· {sf.lead_count} leads</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div onClick={()=>fr.current?.click()} onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor=GOLD}} onDragLeave={e=>{e.currentTarget.style.borderColor=''}}
           className="border-2 border-dashed border-zinc-800 rounded-xl p-10 text-center cursor-pointer hover:border-amber-500/40 transition-colors">
           <div className="text-3xl mb-2">⬆</div>
