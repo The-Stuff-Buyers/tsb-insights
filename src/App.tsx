@@ -109,7 +109,7 @@ export default function App() {
   const [mr,sMR]=useState<MatchResult[]>([]);const [sel,sSel]=useState<MatchResult|null>(null)
   const [files,sFiles]=useState<{name:string;showName:string;count:number;storedId?:string;storagePath?:string}[]>([])
   const [ld,sLd]=useState(false);const [dbl,sDBL]=useState(false)
-  const [dbc,sDBC]=useState(false);const [dbe,sDBE]=useState<string|null>(null);const [ls,sLS]=useState<Date|null>(null)
+  const [dbc,sDBC]=useState(false);const [_dbe,sDBE]=useState<string|null>(null);const [ls,sLS]=useState<Date|null>(null)
   const [fC,sFC]=useState<string|null>(null);const [fP,sFP]=useState<string|null>(null);const [fM,sFM]=useState<string|null>(null);const [fS,sFS2]=useState<string|null>(null)
   const fr=useRef<HTMLInputElement>(null)
   // Accumulated leads across multiple uploads
@@ -229,19 +229,31 @@ export default function App() {
   const exp=()=>{if(!mr.length)return;const r=(fS?mr.filter(x=>x.lead.show_name===fS):mr).map(r=>({...r.lead,product_categories:r.lead.product_categories.join('|'),match_confidence:r.confidence,matched_on:r.matchedOn.join('+'),deal_count:r.deals.length,deal_ids:r.deals.map(d=>d.deal_id).join('; ')}));const csv=Papa.unparse(r);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`tsb_leads_${fS||'all_shows'}_matched.csv`;a.click()}
 
   if(!leads.length) return(
-    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-10 font-sans" onDragOver={e=>e.preventDefault()} onDrop={hd}>
-      <h1 className="text-5xl font-black text-amber-500 tracking-tighter text-center leading-[0.95]">TRADE SHOW<br/>INSIGHTS.</h1>
-      <p className="text-zinc-600 text-sm mt-2 mb-1">The Stuff Buyers — Lead Intelligence Platform</p>
-      <div className={`flex items-center gap-2 text-[0.7rem] mt-3 mb-8 px-3 py-1.5 rounded-lg border ${dbc?'border-green-900 text-green-500 bg-green-950/30':dbl?'border-zinc-700 text-zinc-500 bg-zinc-900':'border-red-900 text-red-400 bg-red-950/30'}`}>
-        <div className={`w-2 h-2 rounded-full ${dbc?'bg-green-500 animate-pulse':dbl?'bg-zinc-500 animate-pulse':'bg-red-500'}`}/>
-        {dbl?'Connecting to Supabase...':dbc?`Live — ${deals.length} deals, ${fs.length} submissions`:`DB Error: ${dbe||'Not connected'}`}
+    <div className="min-h-screen bg-zinc-950 font-sans text-zinc-400" onDragOver={e=>e.preventDefault()} onDrop={hd}>
+      <div className="border-b border-zinc-800 px-6 py-4"><div className="max-w-[1400px] mx-auto flex items-end justify-between flex-wrap gap-3">
+        <div><h1 className="text-2xl font-black text-amber-500 tracking-tighter leading-[0.95]">TRADE SHOW INSIGHTS.</h1><p className="text-[0.65rem] text-zinc-600 mt-1">The Stuff Buyers — Lead Intelligence Platform</p></div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className={`flex items-center gap-1.5 text-[0.65rem] px-2.5 py-1 rounded-lg border ${dbc?'border-green-900/50 text-green-500':dbl?'border-zinc-700 text-zinc-500':'border-red-900/50 text-red-400'}`}><div className={`w-1.5 h-1.5 rounded-full ${dbc?'bg-green-500 animate-pulse':dbl?'bg-zinc-500 animate-pulse':'bg-red-500'}`}/>{dbl?'Connecting...':dbc?`Live · ${deals.length} deals`:'Disconnected'}</div>
+          <Button variant="outline" size="sm" onClick={loadDB} disabled={dbl} className="text-xs border-zinc-700 text-zinc-400 hover:text-amber-500 h-7">{dbl?'↻ Syncing...':'↻ Sync'}</Button>
+          <Button variant="outline" size="sm" onClick={()=>fr.current?.click()} className="text-xs border-amber-700/60 text-amber-500 hover:bg-amber-500/10 h-7">+ Add Show CSV</Button>
+          <input ref={fr} type="file" accept=".csv" multiple className="hidden" onChange={e=>e.target.files?.length&&handleFiles(e.target.files)}/>
+        </div>
+      </div></div>
+      <div className="px-6 pt-6 pb-4 max-w-[1400px] mx-auto">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <KPI label="Total Deals" value={deals.length} accent/>
+          <KPI label="In Pipeline" value={deals.filter(d=>!['closed_won','closed_lost','closed_bidfta_declined','closed_expired','closed_declined','closed_withdrawn'].includes(d.stage)).length}/>
+          <KPI label="Quotes Received" value={deals.filter(d=>['gate2_pending','offer_sent','closed_won'].includes(d.stage)).length}/>
+          <KPI label="Form Submissions" value={fs.length}/>
+        </div>
+        <div onClick={()=>fr.current?.click()} onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor=GOLD}} onDragLeave={e=>{e.currentTarget.style.borderColor=''}}
+          className="border-2 border-dashed border-zinc-800 rounded-xl p-10 text-center cursor-pointer hover:border-amber-500/40 transition-colors">
+          <div className="text-3xl mb-2">⬆</div>
+          <div className="text-base font-bold text-amber-500 mb-1">Drop trade show lead CSVs to cross-reference your pipeline</div>
+          <div className="text-xs text-zinc-600">Each file becomes a filterable show · Auto-matches against {deals.length} live deals</div>
+          {ld&&<p className="text-amber-500 text-xs mt-3 animate-pulse">Processing...</p>}
+        </div>
       </div>
-      <div onClick={()=>fr.current?.click()} className="border-2 border-dashed border-zinc-800 rounded-2xl p-12 text-center cursor-pointer hover:border-amber-500/50 transition-colors max-w-lg"
-        onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor=GOLD}} onDragLeave={e=>{e.currentTarget.style.borderColor=''}}>
-        <div className="text-4xl mb-3">⬆</div><div className="text-lg font-bold text-amber-500 mb-1">Drop trade show lead CSVs here</div>
-        <div className="text-sm text-zinc-600">Supports multiple files — each becomes a filterable show. Auto-matches against {deals.length} live deals.</div>
-        <input ref={fr} type="file" accept=".csv" multiple className="hidden" onChange={e=>e.target.files?.length&&handleFiles(e.target.files)}/>
-      </div>{ld&&<p className="text-amber-500 text-sm mt-4 animate-pulse">Processing...</p>}
     </div>
   )
 
